@@ -19,22 +19,25 @@ filenames = [
     'data/cbt_valid.txt',
     'data/cbtest_P_train.txt'
 ]
-texts = []
-for filename in filenames:
-    with open(filename, mode='rt', encoding='utf-8') as f:
-        read_data = f.readlines()
-    body = []
-    read_data.append('\n')
-    for line in tqdm(read_data):
-        if line == '\n':
-            texts.append(''.join(body)[:-2])
-            body = []
-        else:
-            body.append(' '.join(line.split()[1:]))
 
-print(len(texts))
-df = pd.DataFrame({
-    'excerpt': texts
-})
-df.to_csv('the_childrens_book_test.csv', index=False)
-df.head()
+
+if __name__ == '__main__':
+    texts = []
+    for filename in filenames:
+        with open(filename, mode='rt', encoding='utf-8') as f:
+            read_data = f.readlines()
+        body = []
+        read_data.append('\n')
+        for line in tqdm(read_data):
+            if line == '\n':
+                texts.append(''.join(body)[:-2])
+                body = []
+            else:
+                body.append(' '.join(line.split()[1:]))
+
+    print(len(texts))
+    df = pd.DataFrame({
+        'excerpt': texts
+    })
+    df.to_csv('the_childrens_book_test.csv', index=False)
+    df.head()
