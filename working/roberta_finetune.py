@@ -137,7 +137,7 @@ def eval_mse(model, data_loader):
     return mse_sum / len(data_loader.dataset)
 
 
-def predict(model, data_loader):
+def predict(model, data_loader, is_train=False):
     """Returns an np.array with predictions of the |model| on |data_loader|"""
     model.eval()
 
@@ -145,7 +145,11 @@ def predict(model, data_loader):
     index = 0
 
     with torch.no_grad():
-        for batch_num, (input_ids, attention_mask) in enumerate(data_loader):
+        for batch_num, batch in enumerate(data_loader):
+            if is_train:
+                (input_ids, attention_mask, target) = batch
+            else:
+                (input_ids, attention_mask) = batch
             input_ids = input_ids.to(DEVICE)
             attention_mask = attention_mask.to(DEVICE)
 
@@ -268,7 +272,7 @@ if __name__ == '__main__':
     list_val_rmse = []
 
     kfold = KFold(n_splits=NUM_FOLDS, random_state=SEED, shuffle=True)
-
+    train_df['pred_target'] = 0
     for fold, (train_indices, val_indices) in enumerate(kfold.split(train_df)):    
         print(f"\nFold {fold + 1}/{NUM_FOLDS}")
         model_path = f"model_{fold + 1}.pth"
@@ -294,7 +298,7 @@ if __name__ == '__main__':
 
         list_val_rmse.append(train(model, model_path, train_loader,
                                 val_loader, optimizer, scheduler=scheduler))
-
+        train_df.loc[val_indices, 'pred_target'] = predict(model, val_loader, is_train=True)
         del model
         gc.collect()
 
@@ -325,4 +329,5 @@ if __name__ == '__main__':
     predictions = all_predictions.mean(axis=0)
     submission_df.target = predictions
     print(submission_df)
+    train_df[['id', 'pred_target']].to_csv("pred_val000.csv", index=False)
     submission_df.to_csv("submission.csv", index=False)
