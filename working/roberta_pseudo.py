@@ -137,7 +137,7 @@ def eval_mse(model, data_loader):
     return mse_sum / len(data_loader.dataset)
 
 
-def predict(model, data_loader):
+def predict(model, data_loader, is_train=False):
     """Returns an np.array with predictions of the |model| on |data_loader|"""
     model.eval()
 
@@ -145,7 +145,11 @@ def predict(model, data_loader):
     index = 0
 
     with torch.no_grad():
-        for batch_num, (input_ids, attention_mask) in enumerate(data_loader):
+        for batch_num, batch in enumerate(data_loader):
+            if is_train:
+                (input_ids, attention_mask, target) = batch
+            else:
+                (input_ids, attention_mask) = batch
             input_ids = input_ids.to(DEVICE)
             attention_mask = attention_mask.to(DEVICE)
 
