@@ -18,6 +18,7 @@ if __name__ == "__main__":
     takuoko_exp108 = np.load("takuoko_exp108.npy")
     X_train_svd = np.load("X_train_svd.npy")
     X_test_svd = np.load("X_test_svd.npy")
+    train_idx = np.load("train_idx.npy", allow_pickle=True)
 
     X_test = pd.DataFrame(
         {
@@ -34,7 +35,6 @@ if __name__ == "__main__":
     X_test = pd.concat(
         [X_test, pd.DataFrame(X_test_svd, columns=["svd0", "svd1", "svd2"])], axis=1
     )
-
     # takuoko oof
     pred_val085 = pd.read_csv("../input/commonlit-oof/pred_val085.csv")
     pred_val096 = pd.read_csv("../input/commonlit-oof/pred_val096.csv")
@@ -100,9 +100,10 @@ if __name__ == "__main__":
             "takuoko_exp108": pred_val108.pred_target.values,
         }
     )
-    X_train = pd.concat(
-        [X_train, pd.DataFrame(X_train_svd, columns=["svd0", "svd1", "svd2"])], axis=1
-    )
+    X_train_svd = pd.DataFrame(X_train_svd, columns=["svd0", "svd1", "svd2"])
+    X_train_svd.index = train_idx
+    X_train_svd = X_train_svd.reindex(index=pred_val085["id"]).reset_index(drop=True)
+    X_train = pd.concat([X_train, X_train_svd], axis=1)
 
     y_preds = []
     models = []
