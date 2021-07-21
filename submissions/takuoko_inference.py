@@ -1,30 +1,30 @@
 import sys
 
-sys.path.append("../input/aipipeline/AIPipeline/")
+sys.path.append("../input/d/takuok/aipipeline/AIPipeline/")
 sys.path.append(
-    "../input/packages/pytorch-image-models-master/pytorch-image-models-master/"
+    "../input/d/takuok/packages/pytorch-image-models-master/pytorch-image-models-master/"
 )
 sys.path.append(
-    "../input/packages/pretrained-models.pytorch-master/pretrained-models.pytorch-master/"
+    "../input/d/takuok/packages/pretrained-models.pytorch-master/pretrained-models.pytorch-master/"
 )
-sys.path.append("../input/packages/easydict-master/easydict-master/")
-sys.path.append("../input/packages/omegaconf-2.0.6/omegaconf-2.0.6/")
+sys.path.append("../input/d/takuok/packages/easydict-master/easydict-master/")
+sys.path.append("../input/d/takuok/packages/omegaconf-2.0.6/omegaconf-2.0.6/")
 sys.path.append(
-    "../input/packages/segmentation_models.pytorch-master/segmentation_models.pytorch-master/"
-)
-sys.path.append(
-    "../input/packages/EfficientNet-PyTorch-master/EfficientNet-PyTorch-master/"
+    "../input/d/takuok/packages/segmentation_models.pytorch-master/segmentation_models.pytorch-master/"
 )
 sys.path.append(
-    "../input/packages/pytorch-metric-learning-master/pytorch-metric-learning-master/src/"
+    "../input/d/takuok/packages/EfficientNet-PyTorch-master/EfficientNet-PyTorch-master/"
 )
 sys.path.append(
-    "../input/packages/japanize-matplotlib-master/japanize-matplotlib-master/"
+    "../input/d/takuok/packages/pytorch-metric-learning-master/pytorch-metric-learning-master/src/"
 )
-sys.path.append("../input/packages/einops-master/einops-master/")
-sys.path.append("../input/packages/lightly-master/lightly-master/")
-sys.path.append("../input/packages/lightly_utils-0.0.2/lightly_utils-0.0.2/")
-sys.path.append("../input/packages/hydra-1.0.6/hydra-1.0.6/")
+sys.path.append(
+    "../input/d/takuok/packages/japanize-matplotlib-master/japanize-matplotlib-master/"
+)
+sys.path.append("../input/d/takuok/packages/einops-master/einops-master/")
+sys.path.append("../input/d/takuok/packages/lightly-master/lightly-master/")
+sys.path.append("../input/d/takuok/packages/lightly_utils-0.0.2/lightly_utils-0.0.2/")
+sys.path.append("../input/d/takuok/packages/hydra-1.0.6/hydra-1.0.6/")
 import gc
 import os
 import warnings
@@ -51,11 +51,13 @@ def load_config_with_omega(path, use_edict: bool = True, is_recursion: bool = Fa
     if "_base_" in config:
         config._base_ = [
             b.replace(
-                "/home/user/Desktop/RistAIPipeline", "../input/aipipeline/AIPipeline"
+                "/home/user/Desktop/RistAIPipeline",
+                "../input/d/takuok/aipipeline/AIPipeline",
             )
-            .replace("config/", "../input/commonlit-config/")
+            .replace("config/", "../input/d/takuok/commonlit-config/")
             .replace(
-                "/home/ubuntu/Desktop/RistAIPipeline", "../input/aipipeline/AIPipeline"
+                "/home/ubuntu/Desktop/RistAIPipeline",
+                "../input/d/takuok/aipipeline/AIPipeline",
             )
             for b in config._base_
         ]
@@ -120,7 +122,7 @@ if __name__ == "__main__":
     # ===============
     # Constants
     # ===============
-    config_path = "../input/commonlit-config/exp105_roberta_large_itpt.yml"
+    config_path = "../input/d/takuok/commonlit-config/exp105_roberta_large_itpt.yml"
     config = get_config(config_path)
     config = preprocess_config(config)
 
@@ -143,7 +145,7 @@ if __name__ == "__main__":
         "../input/commonrtx2/exp105_roberta_large_itpt_fold3.pth",
         "../input/commonrtx2/exp105_roberta_large_itpt_fold4.pth",
     ]
-    config_path = "../input/commonlit-config/exp105_roberta_large_itpt.yml"
+    config_path = "../input/d/takuok/commonlit-config/exp105_roberta_large_itpt.yml"
     config = get_config(config_path)
     config = preprocess_config(config)
     config.model.params.num_classes = [c.num_classes for c in config.target]
@@ -166,7 +168,7 @@ if __name__ == "__main__":
         "../input/commonlitrtx/exp108_roberta_large_ep10_fold3.pth",
         "../input/commonlitrtx/exp108_roberta_large_ep10_fold4.pth",
     ]
-    config_path = "../input/commonlit-config/exp108_roberta_large_ep10.yml"
+    config_path = "../input/d/takuok/commonlit-config/exp108_roberta_large_ep10.yml"
     config = get_config(config_path)
     config = preprocess_config(config)
     config.model.params.num_classes = [c.num_classes for c in config.target]
@@ -189,7 +191,7 @@ if __name__ == "__main__":
         "../input/commonrtx2/exp096_longformer_large_fold3.pth",
         "../input/commonrtx2/exp096_longformer_large_fold4.pth",
     ]
-    config_path = "../input/commonlit-config/exp096_longformer_large.yml"
+    config_path = "../input/d/takuok/commonlit-config/exp096_longformer_large.yml"
     config = get_config(config_path)
     config = preprocess_config(config)
     config.model.params.num_classes = [c.num_classes for c in config.target]
@@ -212,7 +214,9 @@ if __name__ == "__main__":
         "../input/commonlitrtx/exp085_electra_large_discriminator_fold3.pth",
         "../input/commonlitrtx/exp085_electra_large_discriminator_fold4.pth",
     ]
-    config_path = "../input/commonlit-config/exp085_electra_large_discriminator.yml"
+    config_path = (
+        "../input/d/takuok/commonlit-config/exp085_electra_large_discriminator.yml"
+    )
     config = get_config(config_path)
     config = preprocess_config(config)
     config.model.params.num_classes = [c.num_classes for c in config.target]
