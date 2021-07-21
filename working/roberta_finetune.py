@@ -1,6 +1,6 @@
-import os
 import gc
 import math
+import os
 import random
 import time
 
@@ -8,22 +8,22 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset
-from torch.utils.data import DataLoader
-from transformers import AdamW
-from transformers import AutoTokenizer
-from transformers import AutoModel
-from transformers import AutoConfig
-from transformers import get_cosine_schedule_with_warmup
 from sklearn.model_selection import KFold
-
+from torch.utils.data import DataLoader, Dataset
+from transformers import (
+    AdamW,
+    AutoConfig,
+    AutoModel,
+    AutoTokenizer,
+    get_cosine_schedule_with_warmup,
+)
 
 gc.enable()
 NUM_FOLDS = 5
 NUM_EPOCHS = 3
 BATCH_SIZE = 16
 MAX_LEN = 248
-EVAL_SCHEDULE = [(0.50, 16), (0.49, 8), (0.48, 4), (0.47, 2), (-1., 1)]
+EVAL_SCHEDULE = [(0.50, 16), (0.49, 8), (0.48, 4), (0.47, 2), (-1.0, 1)]
 ROBERTA_PATH = "../input/clrp_roberta_base"
 TOKENIZER_PATH = "../input/clrp_roberta_base"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -46,25 +46,25 @@ class LitDataset(Dataset):
         self.df = df
         self.inference_only = inference_only
         self.text = df.excerpt.tolist()
-        #self.text = [text.replace("\n", " ") for text in self.text]
+        # self.text = [text.replace("\n", " ") for text in self.text]
 
         if not self.inference_only:
             self.target = torch.tensor(df.target.values, dtype=torch.float32)
 
         self.encoded = tokenizer.batch_encode_plus(
             self.text,
-            padding = 'max_length',
-            max_length = MAX_LEN,
-            truncation = True,
-            return_attention_mask=True
+            padding="max_length",
+            max_length=MAX_LEN,
+            truncation=True,
+            return_attention_mask=True,
         )
 
     def __len__(self):
         return len(self.df)
 
     def __getitem__(self, index):
-        input_ids = torch.tensor(self.encoded['input_ids'][index])
-        attention_mask = torch.tensor(self.encoded['attention_mask'][index])
+        input_ids = torch.tensor(self.encoded["input_ids"][index])
+        attention_mask = torch.tensor(self.encoded["attention_mask"][index])
 
         if self.inference_only:
             return (input_ids, attention_mask)
@@ -78,25 +78,25 @@ class LitModel(nn.Module):
         super().__init__()
 
         config = AutoConfig.from_pretrained(ROBERTA_PATH)
-        config.update({"output_hidden_states":True,
-                       "hidden_dropout_prob": 0.0,
-                       "layer_norm_eps": 1e-7})
+        config.update(
+            {
+                "output_hidden_states": True,
+                "hidden_dropout_prob": 0.0,
+                "layer_norm_eps": 1e-7,
+            }
+        )
 
-        self.roberta = AutoModel.from_pretrained(ROBERTA_PATH, config=config)  
+        self.roberta = AutoModel.from_pretrained(ROBERTA_PATH, config=config)
         self.attention = nn.Sequential(
-            nn.Linear(768, 512),
-            nn.Tanh(),
-            nn.Linear(512, 1),
-            nn.Softmax(dim=1)
+            nn.Linear(768, 512), nn.Tanh(), nn.Linear(512, 1), nn.Softmax(dim=1)
         )
 
-        self.regressor = nn.Sequential(
-            nn.Linear(768, 1)              
-        )
+        self.regressor = nn.Sequential(nn.Linear(768, 1))
 
     def forward(self, input_ids, attention_mask):
-        roberta_output = self.roberta(input_ids=input_ids,
-                                      attention_mask=attention_mask)        
+        roberta_output = self.roberta(
+            input_ids=input_ids, attention_mask=attention_mask
+        )
 
         # There are a total of 13 layers of hidden states.
         # 1 for the embedding layer, and 12 for the 12 Roberta layers.
@@ -111,10 +111,10 @@ class LitModel(nn.Module):
         weights = self.attention(last_layer_hidden_states)
 
         # weights.shape is BATCH_SIZE x MAX_LEN x 1
-        # last_layer_hidden_states.shape is BATCH_SIZE x MAX_LEN x 768        
+        # last_layer_hidden_states.shape is BATCH_SIZE x MAX_LEN x 768
         # Now we compute context_vector as the weighted average.
         # context_vector.shape is BATCH_SIZE x 768
-        context_vector = torch.sum(weights * last_layer_hidden_states, dim=1)        
+        context_vector = torch.sum(weights * last_layer_hidden_states, dim=1)
 
         # Now we reduce the context vector to the prediction score.
         return self.regressor(context_vector)
@@ -161,8 +161,15 @@ def predict(model, data_loader, is_train=False):
     return result
 
 
-def train(model, model_path, train_loader, val_loader,
-          optimizer, scheduler=None, num_epochs=NUM_EPOCHS):
+def train(
+    model,
+    model_path,
+    train_loader,
+    val_loader,
+    optimizer,
+    scheduler=None,
+    num_epochs=NUM_EPOCHS,
+):
     best_val_rmse = None
     best_epoch = 0
     step = 0
@@ -171,8 +178,8 @@ def train(model, model_path, train_loader, val_loader,
 
     start = time.time()
 
-    for epoch in range(num_epochs):                           
-        val_rmse = None         
+    for epoch in range(num_epochs):
+        val_rmse = None
 
         for batch_num, (input_ids, attention_mask, target) in enumerate(train_loader):
             input_ids = input_ids.to(DEVICE)
@@ -198,10 +205,12 @@ def train(model, model_path, train_loader, val_loader,
                 print(f"\n{num_steps} steps took {elapsed_seconds:0.3} seconds")
                 last_eval_step = step
 
-                val_rmse = math.sqrt(eval_mse(model, val_loader))                            
+                val_rmse = math.sqrt(eval_mse(model, val_loader))
 
-                print(f"Epoch: {epoch} batch_num: {batch_num}",
-                      f"val_rmse: {val_rmse:0.4}")
+                print(
+                    f"Epoch: {epoch} batch_num: {batch_num}",
+                    f"val_rmse: {val_rmse:0.4}",
+                )
 
                 for rmse, period in EVAL_SCHEDULE:
                     if val_rmse >= rmse:
@@ -214,8 +223,10 @@ def train(model, model_path, train_loader, val_loader,
                     torch.save(model.state_dict(), model_path)
                     print(f"New best_val_rmse: {best_val_rmse:0.4}")
                 else:
-                    print(f"Still best_val_rmse: {best_val_rmse:0.4}",
-                          f"(from epoch {best_epoch})")
+                    print(
+                        f"Still best_val_rmse: {best_val_rmse:0.4}",
+                        f"(from epoch {best_epoch})",
+                    )
 
                 start = time.time()
             step += 1
@@ -247,22 +258,24 @@ def create_optimizer(model):
         if layer_num >= 133:
             lr = 1e-4
 
-        parameters.append({"params": params,
-                           "weight_decay": weight_decay,
-                           "lr": lr})
+        parameters.append({"params": params, "weight_decay": weight_decay, "lr": lr})
 
     return AdamW(parameters)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     train_df = pd.read_csv("../input/commonlitreadabilityprize/train.csv")
     # Remove incomplete entries if any.
-    train_df.drop(train_df[(train_df.target == 0) & (train_df.standard_error == 0)].index,
-                  inplace=True)
+    train_df.drop(
+        train_df[(train_df.target == 0) & (train_df.standard_error == 0)].index,
+        inplace=True,
+    )
     train_df.reset_index(drop=True, inplace=True)
     test_df = pd.read_csv("../input/commonlitreadabilityprize/test.csv")
-    submission_df = pd.read_csv("../input/commonlitreadabilityprize/sample_submission.csv")
+    submission_df = pd.read_csv(
+        "../input/commonlitreadabilityprize/sample_submission.csv"
+    )
 
     tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_PATH)
 
@@ -272,33 +285,54 @@ if __name__ == '__main__':
     list_val_rmse = []
 
     kfold = KFold(n_splits=NUM_FOLDS, random_state=SEED, shuffle=True)
-    train_df['pred_target'] = 0
-    for fold, (train_indices, val_indices) in enumerate(kfold.split(train_df)):    
+    train_df["pred_target"] = 0
+    for fold, (train_indices, val_indices) in enumerate(kfold.split(train_df)):
         print(f"\nFold {fold + 1}/{NUM_FOLDS}")
         model_path = f"model_{fold + 1}.pth"
 
         set_random_seed(SEED + fold)
 
-        train_dataset = LitDataset(train_df.loc[train_indices])    
-        val_dataset = LitDataset(train_df.loc[val_indices])    
+        train_dataset = LitDataset(train_df.loc[train_indices])
+        val_dataset = LitDataset(train_df.loc[val_indices])
 
-        train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE,
-                                drop_last=True, shuffle=True, num_workers=2)    
-        val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE,
-                                drop_last=False, shuffle=False, num_workers=2)    
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=BATCH_SIZE,
+            drop_last=True,
+            shuffle=True,
+            num_workers=2,
+        )
+        val_loader = DataLoader(
+            val_dataset,
+            batch_size=BATCH_SIZE,
+            drop_last=False,
+            shuffle=False,
+            num_workers=2,
+        )
 
         set_random_seed(SEED + fold)
         model = LitModel().to(DEVICE)
 
-        optimizer = create_optimizer(model)                        
+        optimizer = create_optimizer(model)
         scheduler = get_cosine_schedule_with_warmup(
             optimizer,
             num_training_steps=NUM_EPOCHS * len(train_loader),
-            num_warmup_steps=50)
+            num_warmup_steps=50,
+        )
 
-        list_val_rmse.append(train(model, model_path, train_loader,
-                                val_loader, optimizer, scheduler=scheduler))
-        train_df.loc[val_indices, 'pred_target'] = predict(model, val_loader, is_train=True)
+        list_val_rmse.append(
+            train(
+                model,
+                model_path,
+                train_loader,
+                val_loader,
+                optimizer,
+                scheduler=scheduler,
+            )
+        )
+        train_df.loc[val_indices, "pred_target"] = predict(
+            model, val_loader, is_train=True
+        )
         del model
         gc.collect()
 
@@ -310,24 +344,29 @@ if __name__ == '__main__':
     all_predictions = np.zeros((len(list_val_rmse), len(test_df)))
 
     test_dataset = LitDataset(test_df, inference_only=True)
-    test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE,
-                            drop_last=False, shuffle=False, num_workers=2)
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=BATCH_SIZE,
+        drop_last=False,
+        shuffle=False,
+        num_workers=2,
+    )
 
-    for index in range(len(list_val_rmse)):            
+    for index in range(len(list_val_rmse)):
         model_path = f"model_{index + 1}.pth"
         print(f"\nUsing {model_path}")
-                            
+
         model = LitModel()
-        model.load_state_dict(torch.load(model_path))    
+        model.load_state_dict(torch.load(model_path))
         model.to(DEVICE)
-        
+
         all_predictions[index] = predict(model, test_loader)
-        
+
         del model
         gc.collect()
 
     predictions = all_predictions.mean(axis=0)
     submission_df.target = predictions
     print(submission_df)
-    train_df[['id', 'pred_target']].to_csv("pred_val000.csv", index=False)
+    train_df[["id", "pred_target"]].to_csv("pred_val000.csv", index=False)
     submission_df.to_csv("submission.csv", index=False)
