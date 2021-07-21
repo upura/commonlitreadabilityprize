@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from sklearn.decomposition import TruncatedSVD
 from sklearn.linear_model import ARDRegression, Ridge
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold
@@ -17,9 +18,14 @@ if __name__ == "__main__":
     takuoko_exp096 = np.load("takuoko_exp096.npy")
     takuoko_exp105 = np.load("takuoko_exp105.npy")
     takuoko_exp108 = np.load("takuoko_exp108.npy")
-    X_train_svd = np.load("X_train_svd.npy")
-    X_test_svd = np.load("X_test_svd.npy")
+    X_train_svd = np.load("X_train_all.npy")
+    X_test_svd = np.load("X_test_all.npy")
     train_idx = np.load("train_idx.npy", allow_pickle=True)
+
+    svd1 = TruncatedSVD(n_components=3, n_iter=10, random_state=42)
+    svd1.fit(X_train_svd)
+    X_train_svd = svd1.transform(X_train_svd)
+    X_test_svd = svd1.transform(X_test_svd)
 
     X_test = pd.DataFrame(
         {
@@ -35,7 +41,13 @@ if __name__ == "__main__":
         }
     )
     X_test = pd.concat(
-        [X_test, pd.DataFrame(X_test_svd, columns=["svd0", "svd1", "svd2"])], axis=1
+        [
+            X_test,
+            pd.DataFrame(
+                X_test_svd, columns=[f"svd_{c}" for c in range(X_test_svd.shape[1])]
+            ),
+        ],
+        axis=1,
     )
     # takuoko oof
     pred_val085 = pd.read_csv("../input/commonlit-oof/pred_val085.csv")
@@ -113,7 +125,9 @@ if __name__ == "__main__":
             "takuoko_exp108": pred_val108.pred_target.values,
         }
     )
-    X_train_svd = pd.DataFrame(X_train_svd, columns=["svd0", "svd1", "svd2"])
+    X_train_svd = pd.DataFrame(
+        X_train_svd, columns=[f"svd_{c}" for c in range(X_train_svd.shape[1])]
+    )
     X_train_svd.index = train_idx
     X_train_svd = X_train_svd.reindex(index=pred_val085["id"]).reset_index(drop=True)
     X_train = pd.concat([X_train, X_train_svd], axis=1)
@@ -161,11 +175,13 @@ if __name__ == "__main__":
     print(mean_squared_error(oof_train_r, y_train, squared=False))
     y_sub_r = sum(y_preds_r) / len(y_preds_r)
 
-    print(mean_squared_error(oof_train * 0.5 + oof_train_r * 0.5, y_train, squared=False))
+    print(
+        mean_squared_error(oof_train * 0.7 + oof_train_r * 0.3, y_train, squared=False)
+    )
 
     submission_df = pd.read_csv(
         "../input/commonlitreadabilityprize/sample_submission.csv"
     )
-    submission_df["target"] = (y_sub * 0.5 + y_sub_r * 0.5)
+    submission_df["target"] = y_sub * 0.7 + y_sub_r * 0.3
     submission_df.to_csv("submission.csv", index=False)
     print(submission_df.head())

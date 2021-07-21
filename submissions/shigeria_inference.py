@@ -338,4 +338,6 @@ if __name__ == "__main__":
     np.save("shigeria_pred3", model3_predictions.reshape(-1, 1))
     np.save("X_train_svd", X_train_svd)
     np.save("X_test_svd", X_test_svd)
+    np.save("X_train_all", X_train)
+    np.save("X_test_all", X_test)
     np.save("train_idx", train_df["id"].values)
