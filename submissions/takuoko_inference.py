@@ -8,7 +8,7 @@ sys.path.append(
     "../input/packages/pretrained-models.pytorch-master/pretrained-models.pytorch-master/"
 )
 sys.path.append("../input/packages/easydict-master/easydict-master/")
-sys.path.append("../input/packages/omegaconf-master/omegaconf-master/")
+sys.path.append("../input/packages/omegaconf-2.0.6/omegaconf-2.0.6/")
 sys.path.append(
     "../input/packages/segmentation_models.pytorch-master/segmentation_models.pytorch-master/"
 )
@@ -21,6 +21,10 @@ sys.path.append(
 sys.path.append(
     "../input/packages/japanize-matplotlib-master/japanize-matplotlib-master/"
 )
+sys.path.append("../input/packages/einops-master/einops-master/")
+sys.path.append("../input/packages/lightly-master/lightly-master/")
+sys.path.append("../input/packages/lightly_utils-0.0.2/lightly_utils-0.0.2/")
+sys.path.append("../input/packages/hydra-1.0.6/hydra-1.0.6/")
 import gc
 import os
 import warnings

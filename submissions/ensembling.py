@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import ARDRegression
+from sklearn.linear_model import ARDRegression, Ridge
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold
 
@@ -11,6 +11,7 @@ if __name__ == "__main__":
     shigeria_pred1 = np.load("shigeria_pred1.npy")
     shigeria_pred2 = np.load("shigeria_pred2.npy")
     shigeria_pred3 = np.load("shigeria_pred3.npy")
+    shigeria_pred4 = np.load("shigeria_pred4.npy")
     upura_pred = np.load("upura_pred.npy")
     takuoko_exp085 = np.load("takuoko_exp085.npy")
     takuoko_exp096 = np.load("takuoko_exp096.npy")
@@ -25,6 +26,7 @@ if __name__ == "__main__":
             "shigeria_pred1": shigeria_pred1.reshape(-1),
             "shigeria_pred2": shigeria_pred2.reshape(-1),
             "shigeria_pred3": shigeria_pred3.reshape(-1),
+            "shigeria_pred4": shigeria_pred4.reshape(-1),
             "upura": upura_pred,
             "takuoko_exp085": takuoko_exp085,
             "takuoko_exp096": takuoko_exp096,
@@ -59,13 +61,16 @@ if __name__ == "__main__":
 
     # shigeria oof
     andrey_df = pd.read_csv(
-        "../input/bayesian-commonlit/np_savetxt_andrey.csv", header=None
+        "../input/d/shigeria/bayesian-commonlit/np_savetxt_andrey.csv", header=None
     ).values.ravel()
     andrey_df2 = pd.read_csv(
-        "../input/bayesian-commonlit/np_savetxt_andrey2.csv", header=None
+        "../input/d/shigeria/bayesian-commonlit/np_savetxt_andrey2.csv", header=None
     ).values.ravel()
     andrey_df3 = pd.read_csv(
-        "../input/bayesian-commonlit/np_savetxt_andrey3.csv", header=None
+        "../input/d/shigeria/bayesian-commonlit/np_savetxt_andrey3.csv", header=None
+    ).values.ravel()
+    andrey_df4 = pd.read_csv(
+        "../input/d/shigeria/bayesian-commonlit/np_savetxt_andrey4.csv", header=None
     ).values.ravel()
 
     shigeria_val = pd.read_csv("../input/commonlit-oof/pred_val000.csv")
@@ -87,12 +92,20 @@ if __name__ == "__main__":
         drop=True
     )
 
+    shigeria_val4 = pd.read_csv("../input/commonlit-oof/pred_val000.csv")
+    shigeria_val4["pred_target"] = andrey_df4
+    shigeria_val4.index = shigeria_val4["id"]
+    shigeria_val4 = shigeria_val4.reindex(index=pred_val085["id"]).reset_index(
+        drop=True
+    )
+
     y_train = pred_val085.true_target
     X_train = pd.DataFrame(
         {
             "shigeria_pred1": shigeria_val.pred_target.values,
             "shigeria_pred2": shigeria_val2.pred_target.values,
             "shigeria_pred3": shigeria_val3.pred_target.values,
+            "shigeria_pred4": shigeria_val4.pred_target.values,
             "upura": pred_val000.pred_target.values,
             "takuoko_exp085": pred_val085.pred_target.values,
             "takuoko_exp096": pred_val096.pred_target.values,
@@ -108,15 +121,19 @@ if __name__ == "__main__":
     y_preds = []
     models = []
     oof_train = np.zeros((len(X_train)))
+    y_preds_r = []
+    models_r = []
+    oof_train_r = np.zeros((len(X_train)))
     cv = KFold(n_splits=NUM_FOLDS, random_state=SEED, shuffle=True)
 
-    params = {"alpha": 10, "random_state": 0}
+    params_r = {"alpha": 10, "random_state": 0}
 
     for fold_id, (train_index, valid_index) in enumerate(cv.split(X_train)):
         X_tr = X_train.loc[train_index, :]
         X_val = X_train.loc[valid_index, :]
         y_tr = y_train[train_index]
         y_val = y_train[valid_index]
+
         model = ARDRegression(
             n_iter=300,
             alpha_1=4.419269430437814e-05,
@@ -128,16 +145,27 @@ if __name__ == "__main__":
         model.fit(X_tr, y_tr)
         oof_train[valid_index] = model.predict(X_val)
         y_pred = model.predict(X_test)
-
         y_preds.append(y_pred)
         models.append(model)
+
+        model_r = Ridge(**params_r)
+        model_r.fit(X_tr, y_tr)
+        oof_train_r[valid_index] = model_r.predict(X_val)
+        y_pred_r = model_r.predict(X_test)
+        y_preds_r.append(y_pred_r)
+        models_r.append(model_r)
 
     print(mean_squared_error(oof_train, y_train, squared=False))
     y_sub = sum(y_preds) / len(y_preds)
 
+    print(mean_squared_error(oof_train_r, y_train, squared=False))
+    y_sub_r = sum(y_preds_r) / len(y_preds_r)
+
+    print(mean_squared_error(oof_train * 0.5 + oof_train_r * 0.5, y_train, squared=False))
+
     submission_df = pd.read_csv(
         "../input/commonlitreadabilityprize/sample_submission.csv"
     )
-    submission_df["target"] = y_sub
+    submission_df["target"] = (y_sub * 0.5 + y_sub_r * 0.5)
     submission_df.to_csv("submission.csv", index=False)
     print(submission_df.head())
