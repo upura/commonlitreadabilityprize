@@ -170,4 +170,23 @@ if __name__ == "__main__":
         gc.collect()
 
     upura_pred = all_predictions.mean(axis=0)
+
+    all_predictions = np.zeros((NUM_FOLDS, len(test_df)))
+
+    for index in range(NUM_FOLDS):
+        model_path = f"../input/pre-trained-roberta-solution-in-pytorch/model_{index + 1}.pth"
+        print(f"\nUsing {model_path}")
+
+        model = LitModel()
+        model.load_state_dict(torch.load(model_path))
+        model.to(DEVICE)
+
+        all_predictions[index] = predict(model, test_loader)
+
+        del model
+        gc.collect()
+
+    upura_pred2 = all_predictions.mean(axis=0)
+
     np.save("upura_pred", upura_pred)
+    np.save("upura_pred2", upura_pred2)

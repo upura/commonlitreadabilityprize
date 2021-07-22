@@ -1,3 +1,4 @@
+import lightgbm as lgb
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import TruncatedSVD
@@ -138,9 +139,18 @@ if __name__ == "__main__":
     y_preds_r = []
     models_r = []
     oof_train_r = np.zeros((len(X_train)))
+    y_preds_l = []
+    models_l = []
+    oof_train_l = np.zeros((len(X_train)))
     cv = KFold(n_splits=NUM_FOLDS, random_state=SEED, shuffle=True)
 
     params_r = {"alpha": 10, "random_state": 0}
+    params_l = {
+        "max_depth": 2,
+        "objective": "regression",
+        "metric": "rmse",
+        "learning_rate": 0.05,
+    }
 
     for fold_id, (train_index, valid_index) in enumerate(cv.split(X_train)):
         X_tr = X_train.loc[train_index, :]
@@ -169,19 +179,44 @@ if __name__ == "__main__":
         y_preds_r.append(y_pred_r)
         models_r.append(model_r)
 
+        categorical_cols = []
+        lgb_train = lgb.Dataset(X_tr, y_tr, categorical_feature=categorical_cols)
+        lgb_eval = lgb.Dataset(
+            X_val, y_val, reference=lgb_train, categorical_feature=categorical_cols
+        )
+        model_l = lgb.train(
+            params_l,
+            lgb_train,
+            valid_sets=[lgb_train, lgb_eval],
+            verbose_eval=10,
+            num_boost_round=1000,
+            early_stopping_rounds=10,
+        )
+        oof_train_l[valid_index] = model_l.predict(X_val)
+        y_pred_l = model_l.predict(X_test)
+        y_preds_l.append(y_pred_l)
+        models_l.append(model_l)
+
     print(mean_squared_error(oof_train, y_train, squared=False))
     y_sub = sum(y_preds) / len(y_preds)
 
     print(mean_squared_error(oof_train_r, y_train, squared=False))
     y_sub_r = sum(y_preds_r) / len(y_preds_r)
 
+    print(mean_squared_error(oof_train_l, y_train, squared=False))
+    y_sub_l = sum(y_preds_l) / len(y_preds_l)
+
     print(
-        mean_squared_error(oof_train * 0.7 + oof_train_r * 0.3, y_train, squared=False)
+        mean_squared_error(
+            oof_train * 0.4 + oof_train_r * 0.3 + oof_train_l * 0.3,
+            y_train,
+            squared=False,
+        )
     )
 
     submission_df = pd.read_csv(
         "../input/commonlitreadabilityprize/sample_submission.csv"
     )
-    submission_df["target"] = y_sub * 0.7 + y_sub_r * 0.3
+    submission_df["target"] = y_sub * 0.4 + y_sub_r * 0.3 + y_sub_l * 0.3
     submission_df.to_csv("submission.csv", index=False)
     print(submission_df.head())
