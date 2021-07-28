@@ -1,9 +1,19 @@
 import numpy as np
 import pandas as pd
+from keras import backend as K
+from keras.callbacks import EarlyStopping, ModelCheckpoint
+from keras.layers import Activation, BatchNormalization, Dense, Input
+from keras.models import Model
 from sklearn.decomposition import TruncatedSVD
+from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.linear_model import ARDRegression, Ridge
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold
+
+
+def root_mean_squared_error(y_true, y_pred):
+    return K.sqrt(K.mean(K.square(y_true - y_pred)))
+
 
 if __name__ == "__main__":
     NUM_FOLDS = 50
@@ -24,6 +34,7 @@ if __name__ == "__main__":
     takuoko_exp096 = np.load("takuoko_exp096.npy")
     takuoko_exp105 = np.load("takuoko_exp105.npy")
     takuoko_exp108 = np.load("takuoko_exp108.npy")
+    takuoko_exp184 = np.load("takuoko_exp184.npy")
     X_train_svd = np.load("X_train_all.npy")
     X_test_svd = np.load("X_test_all.npy")
     train_idx = np.load("train_idx.npy", allow_pickle=True)
@@ -50,6 +61,7 @@ if __name__ == "__main__":
             "takuoko_exp096": takuoko_exp096,
             "takuoko_exp105": takuoko_exp105,
             "takuoko_exp108": takuoko_exp108,
+            "takuoko_exp184": takuoko_exp184,
         }
     )
     X_test = pd.concat(
@@ -92,10 +104,12 @@ if __name__ == "__main__":
     pred_val096 = pd.read_csv("../input/commonlit-oof/pred_val096.csv")
     pred_val105 = pd.read_csv("../input/commonlit-oof/pred_val105.csv")
     pred_val108 = pd.read_csv("../input/commonlit-oof/pred_val108.csv")
+    pred_val184 = pd.read_csv("../input/commonoof/exp184_roberta_large_10fold.csv")
     pred_val085 = pd.merge(pred_val000[["id"]], pred_val085, on="id", how="left")
     pred_val096 = pd.merge(pred_val000[["id"]], pred_val096, on="id", how="left")
     pred_val105 = pd.merge(pred_val000[["id"]], pred_val105, on="id", how="left")
     pred_val108 = pd.merge(pred_val000[["id"]], pred_val108, on="id", how="left")
+    pred_val184 = pd.merge(pred_val000[["id"]], pred_val184, on="id", how="left")
 
     y_train = pred_val085.true_target
     X_train = pd.DataFrame(
@@ -115,6 +129,7 @@ if __name__ == "__main__":
             "takuoko_exp096": pred_val096.pred_target.values,
             "takuoko_exp105": pred_val105.pred_target.values,
             "takuoko_exp108": pred_val108.pred_target.values,
+            "takuoko_exp184": pred_val184.pred_target.values,
         }
     )
     X_train_svd = pd.DataFrame(
@@ -130,14 +145,21 @@ if __name__ == "__main__":
     y_preds_r = []
     models_r = []
     oof_train_r = np.zeros((len(X_train)))
+    y_preds_e = []
+    models_e = []
+    oof_train_e = np.zeros((len(X_train)))
+    y_preds_n = []
+    models_n = []
+    oof_train_n = np.zeros((len(X_train)))
     cv = KFold(n_splits=NUM_FOLDS, random_state=SEED, shuffle=True)
 
     params_r = {"alpha": 10, "random_state": 0}
-    params_l = {
-        "max_depth": 2,
-        "objective": "regression",
-        "metric": "rmse",
-        "learning_rate": 0.05,
+    params_e = {
+        "max_depth": 10,
+        "min_samples_leaf": 1,
+        "max_features": 0.9,
+        "n_estimators": 50,
+        "random_state": 0,
     }
 
     for fold_id, (train_index, valid_index) in enumerate(cv.split(X_train)):
@@ -167,15 +189,58 @@ if __name__ == "__main__":
         y_preds_r.append(y_pred_r)
         models_r.append(model_r)
 
+        model_e = ExtraTreesRegressor(**params_e)
+        model_e.fit(X_tr, y_tr)
+        oof_train_e[valid_index] = model_e.predict(X_val)
+        y_pred_e = model_e.predict(X_test)
+        y_preds_e.append(y_pred_e)
+        models_e.append(model_e)
+
+        inp_ = Input(shape=[X_tr.shape[1]])
+        nn = Dense(50)(inp_)
+        nn = BatchNormalization()(nn)
+        nn = Activation("relu")(nn)
+        nn = Dense(16)(nn)
+        nn = BatchNormalization()(nn)
+        nn = Activation("relu")(nn)
+        nn = Dense(1)(nn)
+        model = Model(inp_, nn)
+        model.compile(optimizer="Adam", loss=root_mean_squared_error)
+
+        file_path = "model.hdf5"
+        ckpt = ModelCheckpoint(
+            file_path, monitor="val_loss", verbose=0, save_best_only=True, mode="min"
+        )
+        early = EarlyStopping(monitor="val_loss", mode="min", patience=10)
+        model.fit(
+            X_tr,
+            y_tr,
+            batch_size=64,
+            epochs=100,
+            verbose=0,
+            validation_data=(X_val, y_val),
+            callbacks=[ckpt, early],
+        )
+        model.load_weights(file_path)
+        oof_train_n[valid_index] = model.predict(X_val).reshape(-1)
+        y_pred_n = model.predict(X_test).reshape(-1)
+        y_preds_n.append(y_pred_n)
+
     print(mean_squared_error(oof_train, y_train, squared=False))
     y_sub = sum(y_preds) / len(y_preds)
 
     print(mean_squared_error(oof_train_r, y_train, squared=False))
     y_sub_r = sum(y_preds_r) / len(y_preds_r)
 
+    print(mean_squared_error(oof_train_e, y_train, squared=False))
+    y_sub_e = sum(y_preds_e) / len(y_preds_e)
+
+    print(mean_squared_error(oof_train_n, y_train, squared=False))
+    y_sub_n = sum(y_preds_n) / len(y_preds_n)
+
     print(
         mean_squared_error(
-            oof_train * 0.5 + oof_train_r * 0.5,
+            (oof_train + oof_train_r + oof_train_e + oof_train_n) / 4,
             y_train,
             squared=False,
         )
@@ -184,6 +249,6 @@ if __name__ == "__main__":
     submission_df = pd.read_csv(
         "../input/commonlitreadabilityprize/sample_submission.csv"
     )
-    submission_df["target"] = y_sub * 0.5 + y_sub_r * 0.5
+    submission_df["target"] = (y_sub + y_sub_r + y_sub_e + y_sub_n) / 4
     submission_df.to_csv("submission.csv", index=False)
     print(submission_df.head())
