@@ -62,10 +62,14 @@ class MyDataModule(pl.LightningDataModule):
         self.cfg = cfg
 
     def get_test_df(self):
-        return pd.read_csv(self.cfg.TEST_DF_PATH)
+        df = pd.read_csv(self.cfg.TEST_DF_PATH)
+        return df
 
     def split_train_valid_df(self):
-        df = pd.read_csv(self.cfg.TRAIN_DF_PATH)
+        if int(self.cfg.debug):
+            df = pd.read_csv(self.cfg.TRAIN_DF_PATH, nrows=100)
+        else:
+            df = pd.read_csv(self.cfg.TRAIN_DF_PATH)
 
         # Remove incomplete entries if any.
         df.drop(
@@ -79,9 +83,8 @@ class MyDataModule(pl.LightningDataModule):
             df.loc[val_index, "fold"] = int(n)
         df["fold"] = df["fold"].astype(int)
 
-        fold = 0
-        train_df = df[df["fold"] != fold].reset_index(drop=True)
-        valid_df = df[df["fold"] == fold].reset_index(drop=True)
+        train_df = df[df["fold"] != self.cfg.fold].reset_index(drop=True)
+        valid_df = df[df["fold"] == self.cfg.fold].reset_index(drop=True)
         return train_df, valid_df
 
     def setup(self, stage):
@@ -102,12 +105,12 @@ class MyDataModule(pl.LightningDataModule):
     def get_ds(self, phase):
         assert phase in {"train", "valid", "test"}
         ds = TextDataset(
-            df=self.train_df,
+            df=self.get_dataframe(phase=phase),
             text_col=self.cfg.TEXT_COL,
             target_col=self.cfg.TARGET_COL,
             tokenizer_name=self.cfg.TOKENIZER_PATH,
             max_len=self.cfg.MAX_LEN,
-            is_train=True,
+            is_train=(phase != "test"),
         )
         return ds
 

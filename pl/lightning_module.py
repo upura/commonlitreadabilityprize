@@ -14,7 +14,9 @@ class MyLightningModule(pl.LightningModule):
         self.backbone = MyModel(cfg.MODEL_PATH)
         self.criterion = RMSELoss()
 
-    def forward(self, ids, attention_mask):
+    def forward(self, x):
+        ids = x["ids"]
+        attention_mask = x["attention_mask"]
         output = self.backbone(ids, attention_mask=attention_mask)
         return output
 
