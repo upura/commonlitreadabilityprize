@@ -18,8 +18,8 @@ if __name__ == "__main__":
     parser.add_argument("--debug", default="0")
     args = parser.parse_args()
 
-    fold = args.fold
-    debug = args.debug
+    fold = int(args.fold)
+    debug = int(args.debug)
     cfg = Cfg()
     cfg.fold = fold
     cfg.debug = debug
